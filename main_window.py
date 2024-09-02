@@ -9,6 +9,7 @@
 
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QAction, QFileDialog
 
 
 class Ui_MainWindow(object):
@@ -251,6 +252,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuFilter.menuAction())
         self.menubar.addAction(self.menuEdge_Detection_2.menuAction())
         self.menubar.addAction(self.menuMorfologi.menuAction())
+        
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -332,6 +334,23 @@ class Ui_MainWindow(object):
         self.actionSquare_9.setText(_translate("MainWindow", "Square 9"))
         self.actionSquare_10.setText(_translate("MainWindow", "Square 9"))
 
+        self.menuFile.triggered.connect(self.open_image)
+
+    def open_image(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
+        if file_name:
+            self.originalImage = cv2.imread(file_name)
+            self.processedImage = self.originalImage
+            self.display_image(self.originalImage)
+
+    def save_as(self):
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save As", "", "Image Files (*.png *.jpg *.bmp)")
+        if file_name:
+            # Handle saving the file here
+            print(f"File saved as: {file_name}")
+
+    def exit_application(self):
+        QtWidgets.QApplication.quit()
 
 if __name__ == "__main__":
     import sys
