@@ -1,5 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import numpy as np
@@ -7,6 +8,22 @@ from linear_contrast import linear_contrast
 from linear_saturation import linear_saturation
 from PIL import Image, ImageQt
 # from PIL.ImageQt import ImageQt
+
+# Fungsi-fungsi filter yang digunakan
+def linear_contrast(image, contrast_factor):
+    # Konversi image PIL ke array NumPy
+    image_np = np.array(image)
+    # Aplikasi kontrast
+    contrasted = cv2.convertScaleAbs(image_np, alpha=contrast_factor, beta=0)
+    return contrasted
+
+def linear_saturation(image, saturation_factor):
+    # Aplikasi saturasi
+    image_np = np.array(image)
+    hsv = cv2.cvtColor(image_np, cv2.COLOR_RGB2HSV)
+    hsv[..., 1] = hsv[..., 1] * saturation_factor
+    enhanced = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+    return Image.fromarray(enhanced)
 
 
 class Ui_MainWindow(QMainWindow):
@@ -17,16 +34,24 @@ class Ui_MainWindow(QMainWindow):
     def setupUi(self):
         # Set up the main window
         self.setWindowTitle("Image Filter Application")
-        self.setGeometry(100, 100, 1000, 600)  # Adjusted size for better layout
+        self.setGeometry(100, 100, 1200, 600)  # Adjusted size for better layout
 
-        # Create a central widget to display the image
+        # Create a central widget to display the images
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.layout = QVBoxLayout(self.centralWidget)
 
-        # Label to show the image
-        self.imageLabel = QLabel(self)
-        self.layout.addWidget(self.imageLabel)
+        # Create a horizontal layout to place two labels side by side
+        self.imageLayout = QHBoxLayout()
+        self.layout.addLayout(self.imageLayout)
+
+        # Label to show the original image
+        self.originalImageLabel = QLabel(self)
+        self.imageLayout.addWidget(self.originalImageLabel)
+
+        # Label to show the processed image
+        self.processedImageLabel = QLabel(self)
+        self.imageLayout.addWidget(self.processedImageLabel)
 
         # Create the menu bar
         menubar = self.menuBar()
@@ -131,25 +156,18 @@ class Ui_MainWindow(QMainWindow):
             self.processedImage = self.originalImage.copy()
             self.display_image(self.originalImage)
 
-    def save_image(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Image As", "", 
-                                                   "PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;All Files (*)", options=options)
-        if file_name:
-            cv2.imwrite(file_name, self.processedImage)
-
-    def display_image(self, image):
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        height, width, channel = image_rgb.shape
-        bytes_per_line = channel * width
-        qt_image = QImage(image_rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(qt_image)
-        self.imageLabel.setPixmap(pixmap)
-
     def apply_filter(self, kernel):
-        if self.processedImage is not None:
-            self.processedImage = cv2.filter2D(self.originalImage, -1, kernel)
-            self.display_image(self.processedImage)
+        # Pastikan gambar asli sudah dimuat sebelum melakukan filter
+        if self.originalImage is None:
+            print("Gambar asli belum dimuat!")
+            return
+
+        # Terapkan filter kernel ke gambar asli
+        self.processedImage = cv2.filter2D(self.originalImage, -1, kernel)
+        
+        # Tampilkan gambar hasil filter
+        self.display_image(self.processedImage, is_processed=True)
+
 
     def edge_detection_1(self):
         kernel = np.array([[-1, -1, -1],
@@ -190,9 +208,14 @@ class Ui_MainWindow(QMainWindow):
         self.apply_filter(kernel)
 
     def unsharp_masking_filter(self):
+        # Terapkan Gaussian Blur untuk membuat gambar blur
         gaussian_blur = cv2.GaussianBlur(self.originalImage, (9, 9), 10.0)
+        
+        # Terapkan unsharp masking dengan menambahkan gambar asli dan gambar blur
         self.processedImage = cv2.addWeighted(self.originalImage, 1.5, gaussian_blur, -0.5, 0)
-        self.display_image(self.processedImage)
+        
+        # Tampilkan hasilnya
+        self.display_image(self.processedImage, is_processed=True)
 
     def average_filter(self):
         kernel = np.ones((5, 5), np.float32) / 25
@@ -214,42 +237,76 @@ class Ui_MainWindow(QMainWindow):
                            [1,  1,  1]])
         self.apply_filter(kernel)
 
+    def display_image(self, image, is_processed=False, default_width=800, default_height=600):
+        if isinstance(image, Image.Image):
+            image_np = np.array(image)
+        else:
+            image_np = image
+        
+        image_rgb = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
+
+        height, width, _ = image_rgb.shape
+        aspect_ratio = width / height
+
+        if width > default_width or height > default_height:
+            if aspect_ratio > 1:
+                width = default_width
+                height = int(width / aspect_ratio)
+            else:
+                height = default_height
+                width = int(height * aspect_ratio)
+
+            image_rgb = cv2.resize(image_rgb, (width, height), interpolation=cv2.INTER_AREA)
+
+        q_image = QImage(image_rgb.data, width, height, 3 * width, QImage.Format_RGB888)
+
+        if is_processed:
+            self.processedImageLabel.setPixmap(QPixmap.fromImage(q_image))
+            self.processedImageLabel.setAlignment(Qt.AlignCenter)
+        else:
+            self.originalImageLabel.setPixmap(QPixmap.fromImage(q_image))
+            self.originalImageLabel.setAlignment(Qt.AlignCenter)
+    
     def apply_linear_contrast(self):
         if self.originalImage is not None:
-            contrast_factor = 1.2  # Nilai default, bisa disesuaikan
+            contrast_factor = 1.2  # Default value, can be adjusted
             self.processedImage = linear_contrast(self.originalImage, contrast_factor)
-            self.display_image(self.processedImage)
+            self.display_image(self.processedImage, is_processed=True)
+        else:
+            QMessageBox.warning(self, "Warning", "No image loaded to process.")
 
     def apply_linear_saturation(self):
         if self.processedImage is not None:
-            if isinstance(self.processedImage, np.ndarray):  # Pastikan processedImage adalah array NumPy
+            if isinstance(self.processedImage, np.ndarray):
                 try:
-                    # Konversi ke gambar PIL
                     pil_image = Image.fromarray(cv2.cvtColor(self.processedImage, cv2.COLOR_BGR2RGB))
-                    saturation_factor = 1.5  # Misalnya, tingkat saturasi ditetapkan ke 1.5
-                    enhanced_image = linear_saturation(pil_image, saturation_factor)  # Panggil fungsi dengan faktor saturasi
-                    self.processedImage = np.array(enhanced_image)  # Konversi kembali ke array NumPy
-                    self.display_image(self.processedImage)  # Tampilkan gambar
+                    saturation_factor = 1.5  # Example value
+                    enhanced_image = linear_saturation(pil_image, saturation_factor)
+                    self.processedImage = np.array(enhanced_image)
+                    self.display_image(self.processedImage, is_processed=True)
                 except cv2.error as e:
                     print(f"Error in cvtColor: {e}")
             else:
-                print("Processed image is not a valid NumPy array.")
+                QMessageBox.warning(self, "Warning", "Processed image is not a valid NumPy array.")
         else:
-            print("No image loaded to process.")
+            QMessageBox.warning(self, "Warning", "No image loaded to process.")
+    
+    def save_image(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Image As", 
+            "", 
+            "PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;All Files (*)", 
+            options=options
+        )
 
-    def display_image(self, image):
-        if isinstance(image, Image.Image):  # Jika image adalah objek PIL
-            image_np = np.array(image)  # Konversi ke array NumPy
-        else:
-            image_np = image  # Jika sudah berupa array NumPy, langsung digunakan
-        
-        image_rgb = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)  # Konversi warna
-        height, width, _ = image_rgb.shape  # Mendapatkan dimensi gambar
-        q_image = QImage(image_rgb.data, width, height, 3 * width, QImage.Format_RGB888)  # Konversi ke QImage
-        self.imageLabel.setPixmap(QPixmap.fromImage(q_image))  # Menampilkan gambar
-
-
-
+        if file_name:
+            if hasattr(self, 'processedImage') and self.processedImage is not None:
+                cv2.imwrite(file_name, self.processedImage)
+            else:
+                QMessageBox.warning(self, "Warning", "No image to save.")
+                
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     mainWindow = Ui_MainWindow()
