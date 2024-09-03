@@ -1,13 +1,17 @@
+# main.py
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 import cv2
 import numpy as np
-from linear_contrast import linear_contrast
-from linear_saturation import linear_saturation
-from PIL import Image, ImageQt
-# from PIL.ImageQt import ImageQt
+from PIL import Image
+from filter import (
+    edge_detection_1, edge_detection_2, edge_detection_3,
+    gaussian_blur, identity_filter, sharpen_filter,
+    unsharp_masking_filter, average_filter, low_pass_filter,
+    high_pass_filter, bandstop_filter
+)
 
 # Fungsi-fungsi filter yang digunakan
 def linear_contrast(image, contrast_factor):
@@ -25,6 +29,12 @@ def linear_saturation(image, saturation_factor):
     enhanced = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
     return Image.fromarray(enhanced)
 
+def resize_image(image, max_width, max_height):
+    width, height = image.size
+    ratio = min(max_width / width, max_height / height)
+    new_width = int(width * ratio)
+    new_height = int(height * ratio)
+    return image.resize((new_width, new_height), Image.LANCZOS)
 
 class Ui_MainWindow(QMainWindow):
     def __init__(self):
@@ -110,6 +120,17 @@ class Ui_MainWindow(QMainWindow):
         menuFilter.addAction(self.actionHighPassFilter)
         menuFilter.addAction(self.actionBandstopFilter)
 
+        # Create additional menu for linear contrast and saturation
+        menuAdjustments = menubar.addMenu('Adjustments')
+
+        # Create actions for linear contrast and saturation
+        self.actionLinearContrast = QAction('Linear Contrast', self)
+        self.actionLinearSaturation = QAction('Linear Saturation', self)
+
+        # Add actions to Adjustments menu
+        menuAdjustments.addAction(self.actionLinearContrast)
+        menuAdjustments.addAction(self.actionLinearSaturation)
+
         # Connect actions to methods
         self.actionOpenImage.triggered.connect(self.open_image)
         self.actionSaveAs.triggered.connect(self.save_image)
@@ -127,188 +148,158 @@ class Ui_MainWindow(QMainWindow):
         self.actionLowPassFilter.triggered.connect(self.low_pass_filter)
         self.actionHighPassFilter.triggered.connect(self.high_pass_filter)
         self.actionBandstopFilter.triggered.connect(self.bandstop_filter)
-
-         # Create additional menu for linear contrast and saturation
-        menuAdjustments = menubar.addMenu('Adjustments')
-
-        # Create actions for linear contrast and saturation
-        self.actionLinearContrast = QAction('Linear Contrast', self)
-        self.actionLinearSaturation = QAction('Linear Saturation', self)
-
-        # Add actions to Adjustments menu
-        menuAdjustments.addAction(self.actionLinearContrast)
-        menuAdjustments.addAction(self.actionLinearSaturation)
-
-        # Connect the actions to the corresponding methods
-        self.actionLinearContrast.triggered.connect(self.apply_linear_contrast)
-        self.actionLinearSaturation.triggered.connect(self.apply_linear_saturation)
+        self.actionLinearContrast.triggered.connect(self.linear_contrast_filter)
+        self.actionLinearSaturation.triggered.connect(self.linear_saturation_filter)
 
         # Initialize image variables
-        self.originalImage = None
-        self.processedImage = None
+        self.original_image = None
+        self.processed_image = None
 
     def open_image(self):
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", 
-                                                   "Images (*.png *.xpm *.jpg *.jpeg *.bmp);;All Files (*)", options=options)
-        if file_name:
-            self.originalImage = cv2.imread(file_name)
-            self.processedImage = self.originalImage.copy()
-            self.display_image(self.originalImage)
+        file_path, _ = QFileDialog.getOpenFileName(self, 'Open Image File', '', 'Images (*.png *.jpg *.bmp);;All Files (*)', options=options)
+        if file_path:
+            self.original_image = Image.open(file_path)
+            self.display_image(self.original_image, self.originalImageLabel)
+            self.processed_image = None
 
-    def apply_filter(self, kernel):
-        # Pastikan gambar asli sudah dimuat sebelum melakukan filter
-        if self.originalImage is None:
-            print("Gambar asli belum dimuat!")
-            return
+    def save_image(self):
+        if self.processed_image:
+            options = QFileDialog.Options()
+            file_path, _ = QFileDialog.getSaveFileName(self, 'Save Image As', '', 'Images (*.png *.jpg *.bmp);;All Files (*)', options=options)
+            if file_path:
+                self.processed_image.save(file_path)
+        else:
+            QMessageBox.warning(self, 'No Image', 'No processed image to save.')
 
-        # Terapkan filter kernel ke gambar asli
-        self.processedImage = cv2.filter2D(self.originalImage, -1, kernel)
+    def display_image(self, image, label):
+        # Ukuran default
+        max_width = 800
+        max_height = 600
+
+        # Ubah ukuran gambar jika melebihi ukuran maksimum
+        resized_image = resize_image(image, max_width, max_height)
+
+        # Konversi gambar PIL ke array NumPy
+        image_np = np.array(resized_image)
         
-        # Tampilkan gambar hasil filter
-        self.display_image(self.processedImage, is_processed=True)
+        # Cek format gambar dan tentukan format QImage yang sesuai
+        if len(image_np.shape) == 3 and image_np.shape[2] == 3:
+            format = QImage.Format_RGB888
+        else:
+            format = QImage.Format_Grayscale8
+
+        # Konversi array NumPy ke QImage
+        qimage = QImage(image_np.data, image_np.shape[1], image_np.shape[0], image_np.strides[0], format)
+        
+        # Konversi QImage ke QPixmap
+        pixmap = QPixmap.fromImage(qimage)
+        
+        # Tampilkan pixmap di label
+        label.setPixmap(pixmap)
 
 
     def edge_detection_1(self):
-        kernel = np.array([[-1, -1, -1],
-                           [-1,  8, -1],
-                           [-1, -1, -1]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = edge_detection_1(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def edge_detection_2(self):
-        kernel = np.array([[1,  0, -1],
-                           [0,  0,  0],
-                           [-1, 0,  1]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = edge_detection_2(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def edge_detection_3(self):
-        kernel = np.array([[0,  1,  0],
-                           [1, -4,  1],
-                           [0,  1,  0]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = edge_detection_3(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def gaussian_blur_3x3(self):
-        self.processedImage = cv2.GaussianBlur(self.originalImage, (3, 3), 0)
-        self.display_image(self.processedImage)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = gaussian_blur(image_np, (3, 3))
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def gaussian_blur_3x5(self):
-        self.processedImage = cv2.GaussianBlur(self.originalImage, (3, 5), 0)
-        self.display_image(self.processedImage)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = gaussian_blur(image_np, (5, 5))
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def identity_filter(self):
-        kernel = np.array([[0,  0,  0],
-                           [0,  1,  0],
-                           [0,  0,  0]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = identity_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def sharpen_filter(self):
-        kernel = np.array([[ 0, -1,  0],
-                           [-1,  5, -1],
-                           [ 0, -1,  0]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = sharpen_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def unsharp_masking_filter(self):
-        # Terapkan Gaussian Blur untuk membuat gambar blur
-        gaussian_blur = cv2.GaussianBlur(self.originalImage, (9, 9), 10.0)
-        
-        # Terapkan unsharp masking dengan menambahkan gambar asli dan gambar blur
-        self.processedImage = cv2.addWeighted(self.originalImage, 1.5, gaussian_blur, -0.5, 0)
-        
-        # Tampilkan hasilnya
-        self.display_image(self.processedImage, is_processed=True)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = unsharp_masking_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def average_filter(self):
-        kernel = np.ones((5, 5), np.float32) / 25
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = average_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def low_pass_filter(self):
-        kernel = np.ones((3, 3), np.float32) / 9
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = low_pass_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def high_pass_filter(self):
-        kernel = np.array([[-1, -1, -1],
-                           [-1,  8, -1],
-                           [-1, -1, -1]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = high_pass_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
     def bandstop_filter(self):
-        kernel = np.array([[1,  1,  1],
-                           [1, -7,  1],
-                           [1,  1,  1]])
-        self.apply_filter(kernel)
+        if self.original_image:
+            image_np = np.array(self.original_image)
+            processed_np = bandstop_filter(image_np)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
-    def display_image(self, image, is_processed=False, default_width=800, default_height=600):
-        if isinstance(image, Image.Image):
-            image_np = np.array(image)
-        else:
-            image_np = image
-        
-        image_rgb = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
+    def linear_contrast_filter(self):
+        if self.original_image:
+            contrast_factor = 1.5  # Example contrast factor
+            image_np = np.array(self.original_image)
+            processed_np = linear_contrast(self.original_image, contrast_factor)
+            self.processed_image = Image.fromarray(processed_np)
+            self.display_image(self.processed_image, self.processedImageLabel)
 
-        height, width, _ = image_rgb.shape
-        aspect_ratio = width / height
+    def linear_saturation_filter(self):
+        if self.original_image:
+            saturation_factor = 1.5  # Example saturation factor
+            processed_image = linear_saturation(self.original_image, saturation_factor)
+            self.processed_image = processed_image
+            self.display_image(self.processed_image, self.processedImageLabel)
 
-        if width > default_width or height > default_height:
-            if aspect_ratio > 1:
-                width = default_width
-                height = int(width / aspect_ratio)
-            else:
-                height = default_height
-                width = int(height * aspect_ratio)
-
-            image_rgb = cv2.resize(image_rgb, (width, height), interpolation=cv2.INTER_AREA)
-
-        q_image = QImage(image_rgb.data, width, height, 3 * width, QImage.Format_RGB888)
-
-        if is_processed:
-            self.processedImageLabel.setPixmap(QPixmap.fromImage(q_image))
-            self.processedImageLabel.setAlignment(Qt.AlignCenter)
-        else:
-            self.originalImageLabel.setPixmap(QPixmap.fromImage(q_image))
-            self.originalImageLabel.setAlignment(Qt.AlignCenter)
-    
-    def apply_linear_contrast(self):
-        if self.originalImage is not None:
-            contrast_factor = 1.2  # Default value, can be adjusted
-            self.processedImage = linear_contrast(self.originalImage, contrast_factor)
-            self.display_image(self.processedImage, is_processed=True)
-        else:
-            QMessageBox.warning(self, "Warning", "No image loaded to process.")
-
-    def apply_linear_saturation(self):
-        if self.processedImage is not None:
-            if isinstance(self.processedImage, np.ndarray):
-                try:
-                    pil_image = Image.fromarray(cv2.cvtColor(self.processedImage, cv2.COLOR_BGR2RGB))
-                    saturation_factor = 1.5  # Example value
-                    enhanced_image = linear_saturation(pil_image, saturation_factor)
-                    self.processedImage = np.array(enhanced_image)
-                    self.display_image(self.processedImage, is_processed=True)
-                except cv2.error as e:
-                    print(f"Error in cvtColor: {e}")
-            else:
-                QMessageBox.warning(self, "Warning", "Processed image is not a valid NumPy array.")
-        else:
-            QMessageBox.warning(self, "Warning", "No image loaded to process.")
-    
-    def save_image(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(
-            self, 
-            "Save Image As", 
-            "", 
-            "PNG Files (*.png);;JPEG Files (*.jpg *.jpeg);;All Files (*)", 
-            options=options
-        )
-
-        if file_name:
-            if hasattr(self, 'processedImage') and self.processedImage is not None:
-                cv2.imwrite(file_name, self.processedImage)
-            else:
-                QMessageBox.warning(self, "Warning", "No image to save.")
-                
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    mainWindow = Ui_MainWindow()
-    mainWindow.show()
+    window = Ui_MainWindow()
+    window.show()
     sys.exit(app.exec_())
