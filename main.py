@@ -28,6 +28,7 @@ from img_pross import fuzzy_histogram_equalization, fuzzy_histogram_equalization
 from popup_slider import ColorCorrectionDialog 
 from histogram import plot_histogram
 from transform import translation, rotation, flipping, convert_cv_to_pil, CroppableLabel, display_image_zoom
+from about_dialog import about_dialog
            
 class Ui_MainWindow(QMainWindow):
     
@@ -202,8 +203,12 @@ class Ui_MainWindow(QMainWindow):
         menuTransform.addAction(self.actionZooming)
         menuTransform.addAction(self.actionCropping)
     
-        # Create the Tentang menu
-        menuTentang = menubar.addMenu('Tentang')
+        # Create the "Tentang" action directly in the menubar
+        self.aboutAction = QAction('Tentang', self)
+
+        # Add the action directly to the menubar without creating a submenu
+        menubar.addAction(self.aboutAction)
+
         # Create the Image Processing menu
         menuImgPross = menubar.addMenu('Image Processing')
 
@@ -320,6 +325,7 @@ class Ui_MainWindow(QMainWindow):
         self.actionOpenImage.triggered.connect(self.open_image)
         self.actionSaveAs.triggered.connect(self.save_image)
         self.actionExit.triggered.connect(self.close)
+        self.aboutAction.triggered.connect(self.dialog_popup_apply)
 
         # Image Processing Filters
         self.actionEdgeDetection1.triggered.connect(self.edge_detection_1)
@@ -883,6 +889,9 @@ class Ui_MainWindow(QMainWindow):
         # Aktifkan mode cropping
         self.originalImageLabel.setCursor(Qt.CrossCursor)
         self.originalImageLabel.enable_cropping()
+
+    def dialog_popup_apply(self):
+        about_dialog()
 
     def clear_image(self):
         # Clear the pixmap from both labels
