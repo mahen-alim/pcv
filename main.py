@@ -1,31 +1,33 @@
 # main.py
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QAction, QFileDialog, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QDesktopWidget, QDialog, QInputDialog, QMessageBox,
-                             QPushButton, QSizePolicy)
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QAction, QFileDialog, QLabel, 
+    QVBoxLayout, QWidget, QHBoxLayout, QDesktopWidget, QDialog, 
+    QInputDialog, QMessageBox,QSizePolicy
+)
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QImage, QPixmap, QPainter
-import cv2
 import numpy as np
 from PIL import Image
+# Import filters from the 'filter' module
 from filter import (
-                        edge_detection_1, edge_detection_2, edge_detection_3,
-                        gaussian_blur, identity_filter, sharpen_filter,
-                        unsharp_masking_filter, average_filter, low_pass_filter,
-                        high_pass_filter, bandstop_filter
-                    )
+    edge_detection_1, edge_detection_2, edge_detection_3,
+    gaussian_blur, identity_filter, sharpen_filter,
+    unsharp_masking_filter, average_filter, low_pass_filter,
+    high_pass_filter, bandstop_filter
+)
+# Import color adjustments from the 'colors' module
 from colors import (
-                        apply_kuning, apply_orange, apply_cyan, 
-                        apply_purple, apply_grey, apply_coklat, 
-                        apply_merah, convert_to_average, convert_to_lightness, 
-                        convert_to_luminance, adjust_saturation, adjust_contrast, 
-                        adjust_brightness, apply_bit_depth, apply_invers, 
-                        apply_log_brightness, apply_gamma_correction
-                    )
+    apply_kuning, apply_orange, apply_cyan, apply_purple,
+    apply_grey, apply_coklat, apply_merah, convert_to_average,
+    convert_to_lightness, convert_to_luminance, adjust_saturation,
+    adjust_contrast, adjust_brightness, apply_bit_depth, apply_invers,
+    apply_log_brightness, apply_gamma_correction
+)
 from img_pross import fuzzy_histogram_equalization, fuzzy_histogram_equalization_rgb, display_image
 from popup_slider import ColorCorrectionDialog 
 from histogram import plot_histogram
 from transform import translation, rotation, flipping, convert_cv_to_pil, CroppableLabel, display_image_zoom
-# from cropping import ImageCropper
            
 class Ui_MainWindow(QMainWindow):
     
@@ -35,7 +37,9 @@ class Ui_MainWindow(QMainWindow):
 
     def setupUi(self):
         self.setWindowTitle("Image Filter Application")
-        self.setGeometry(100, 100, 1600, 900)  # Set posisi awal dan ukuran
+        self.default_width = 1600
+        self.default_height = 900
+        self.setGeometry(100, 100, self.default_width, self.default_height)
     
         # Center the window on the screen
         self.center()
@@ -60,7 +64,6 @@ class Ui_MainWindow(QMainWindow):
         # Apply CSS style for border radius
         self.originalImageLabel.setStyleSheet("""
             border: 1px solid black; 
-            border-radius: 20px; 
             background-color: white;          
             padding: 10px;      
         """)
@@ -78,10 +81,14 @@ class Ui_MainWindow(QMainWindow):
          # Apply CSS style for border radius
         self.processedImageLabel.setStyleSheet("""
             border: 1px solid black; 
-            border-radius: 20px; 
             background-color: white;
             padding: 10px;
         """)
+
+        fixed_width = 750
+        fixed_height = 800
+        self.originalImageLabel.setFixedSize(fixed_width, fixed_height)
+        self.processedImageLabel.setFixedSize(fixed_width, fixed_height)
 
         # Menu bar
         menubar = self.menuBar()
@@ -374,7 +381,7 @@ class Ui_MainWindow(QMainWindow):
         self.menuFuzzyRGB.triggered.connect(self.open_image_and_apply_fuzzy_rgb)
 
         # Clear Action
-        self.clearAction.triggered.connect(self.clearImages)
+        self.clearAction.triggered.connect(self.clear_image)
 
         # Initialize image variables
         self.original_image = None
@@ -877,19 +884,27 @@ class Ui_MainWindow(QMainWindow):
         self.originalImageLabel.setCursor(Qt.CrossCursor)
         self.originalImageLabel.enable_cropping()
 
-    def clearImages(self):
-        # Clear the pixmap from both labels without resetting the size
+    def clear_image(self):
+        # Clear the pixmap from both labels
         self.originalImageLabel.clear()  # Clears the original image
         self.processedImageLabel.clear()  # Clears the processed image
         self.originalImageLabel.disable_cropping()
-        # Mengembalikan ukuran label ke ukuran semula
-        default_width = 750
-        default_height = 800
         
-        self.originalImageLabel.setFixedSize(default_width, default_height)
-        self.processedImageLabel.setFixedSize(default_width, default_height)
+        # Mengembalikan ukuran label ke ukuran semula
+        default_label_width = 750
+        default_label_height = 800
+        
+        self.originalImageLabel.setFixedSize(default_label_width, default_label_height)
+        self.processedImageLabel.setFixedSize(default_label_width, default_label_height)
+        
+        # Mengatur ukuran dan posisi jendela ke ukuran default
+        screen_geometry = QDesktopWidget().availableGeometry()  # Mendapatkan ukuran layar
+        x = (screen_geometry.width() - self.default_width) // 2  # Menghitung posisi X tengah
+        y = (screen_geometry.height() - self.default_height) // 2  # Menghitung posisi Y tengah
 
-        print("Images cleared from both labels")
+        self.setGeometry(x, y, self.default_width, self.default_height)
+
+        print("Images cleared from both labels and window size reset to default")
     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
