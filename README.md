@@ -5,7 +5,9 @@ Aplikasi Desktop Citra Vision Kelompok C3
 Ikuti langkah-langkah di bawah ini untuk meng-clone repository dan menjalankan project Python di lokal Kamu.
 - Buka terminal atau command prompt di komputer Anda.
 - Clone repository dengan perintah berikut:
-  `git clone https://github.com/username/project-name.git`
+  ```bash
+    git clone https://github.com/username/project-name.git
+    ```
 - Edit aktivitas, jadwal lapangan, keanggotaan, dsb. Melalui sistem CRUD (Create, Read, Update, Delete)
 - Mengecek data statistik tentang kalkulasi pemesanan lapangan
 
