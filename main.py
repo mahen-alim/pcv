@@ -3,11 +3,12 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QAction, QFileDialog, QLabel, 
     QVBoxLayout, QWidget, QHBoxLayout, QDesktopWidget, QDialog, 
-    QInputDialog, QMessageBox,QSizePolicy
+    QInputDialog, QMessageBox, QSizePolicy, QScrollArea
 )
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QImage, QPixmap, QPainter
 import numpy as np
+import cv2
 from PIL import Image
 # Import filters from the 'filter' module
 from filter import (
@@ -29,6 +30,7 @@ from popup_slider import ColorCorrectionDialog
 from histogram import plot_histogram
 from transform import translation, rotation, flipping, convert_cv_to_pil, CroppableLabel, display_image_zoom
 from about_dialog import about_dialog
+from segmentation import region_growing, kmeans_clustering, watershed_segmentation, global_thresholding, adaptive_thresholding, display_images
            
 class Ui_MainWindow(QMainWindow):
     
@@ -60,6 +62,7 @@ class Ui_MainWindow(QMainWindow):
 
         # Label to show the original image
         self.originalImageLabel = CroppableLabel(self)
+        self.originalImageLabel.setFixedSize(800, 600)
         self.originalImageLayout.addWidget(self.originalImageLabel)
 
         # Apply CSS style for border radius
@@ -77,7 +80,25 @@ class Ui_MainWindow(QMainWindow):
         self.processedImageLabel = QLabel(self)
         self.processedImageLabel.setAlignment(Qt.AlignCenter)
         self.processedImageLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.processedImageLayout.addWidget(self.processedImageLabel)
+
+        # Mengatur ukuran default
+        default_width = 750  # Ganti dengan lebar default yang diinginkan
+        default_height = 800  # Ganti dengan tinggi default yang diinginkan
+
+        # Mengatur ukuran default untuk originalImageLabel
+        self.originalImageLabel.setFixedSize(default_width, default_height)
+
+        # Mengatur ukuran default untuk processedImageLabel
+        self.processedImageLabel.setFixedSize(default_width, default_height)
+
+        # Membuat QScrollArea untuk processedImageLabel
+        self.scrollArea = QScrollArea(self)
+        self.scrollArea.setWidget(self.processedImageLabel)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setFixedSize(default_width, default_height)
+
+        # Menambahkan QScrollArea ke layout
+        self.processedImageLayout.addWidget(self.scrollArea)
 
          # Apply CSS style for border radius
         self.processedImageLabel.setStyleSheet("""
@@ -85,11 +106,6 @@ class Ui_MainWindow(QMainWindow):
             background-color: white;
             padding: 10px;
         """)
-
-        fixed_width = 750
-        fixed_height = 800
-        self.originalImageLabel.setFixedSize(fixed_width, fixed_height)
-        self.processedImageLabel.setFixedSize(fixed_width, fixed_height)
 
         # Menu bar
         menubar = self.menuBar()
@@ -188,6 +204,16 @@ class Ui_MainWindow(QMainWindow):
         menuColors.addAction(self.menuLog)
         menuColors.addAction(self.menuGamma)
 
+        # Create the Image Processing menu
+        menuImgPross = menubar.addMenu('Image Processing')
+
+        self.menuHE = QAction('Fuzy HE', self)
+        self.menuFuzzyRGB = QAction('Fuzzy HE RGB', self)
+
+        # Add these actions directly to the Image Processing menu
+        menuImgPross.addAction(self.menuHE)
+        menuImgPross.addAction(self.menuFuzzyRGB)
+
         # Create the Transform menu
         menuTransform = menubar.addMenu('Transform')
 
@@ -202,22 +228,27 @@ class Ui_MainWindow(QMainWindow):
         menuTransform.addAction(self.actionFlipping)
         menuTransform.addAction(self.actionZooming)
         menuTransform.addAction(self.actionCropping)
+
+        # Create the Segmentation menu
+        menuSegment = menubar.addMenu('Segmentation')
+
+        self.actionGrowing = QAction('Region Growing')
+        self.actionClustering = QAction('K-Means Clustering')
+        self.actionWatershed = QAction('Watershed Segmentation')
+        self.actionTGlobal = QAction('Global Thresholding ')
+        self.actionTAdaptif = QAction('Adaptif Thresholding ')
+
+        menuSegment.addAction(self.actionGrowing)
+        menuSegment.addAction(self.actionClustering)
+        menuSegment.addAction(self.actionWatershed)
+        menuSegment.addAction(self.actionTGlobal)
+        menuSegment.addAction(self.actionTAdaptif)
     
         # Create the "Tentang" action directly in the menubar
         self.aboutAction = QAction('Tentang', self)
 
         # Add the action directly to the menubar without creating a submenu
         menubar.addAction(self.aboutAction)
-
-        # Create the Image Processing menu
-        menuImgPross = menubar.addMenu('Image Processing')
-
-        self.menuHE = QAction('Fuzy HE', self)
-        self.menuFuzzyRGB = QAction('Fuzzy HE RGB', self)
-
-        # Add these actions directly to the Image Processing menu
-        menuImgPross.addAction(self.menuHE)
-        menuImgPross.addAction(self.menuFuzzyRGB)
 
         # Create the Aritmetical Operation menu
         menuAritmetical = menubar.addMenu('Aritmetical Operation')
@@ -386,6 +417,13 @@ class Ui_MainWindow(QMainWindow):
         self.menuHE.triggered.connect(self.open_image_and_apply_histogram_equalization_triggered)
         self.menuFuzzyRGB.triggered.connect(self.open_image_and_apply_fuzzy_rgb)
 
+        # Segmentation
+        self.actionGrowing.triggered.connect(self.apply_region_growing)
+        self.actionClustering.triggered.connect(self.apply_kmeans_clustering)
+        self.actionWatershed.triggered.connect(self.apply_watershed_segmentation)
+        self.actionTGlobal.triggered.connect(self.apply_global_thresholding)
+        self.actionTAdaptif.triggered.connect(self.apply_adaptive_thresholding)
+
         # Clear Action
         self.clearAction.triggered.connect(self.clear_image)
 
@@ -481,6 +519,9 @@ class Ui_MainWindow(QMainWindow):
 
         # Set pixmap label
         label.setPixmap(label_pixmap)
+
+        # Jika label lebih besar dari gambar, pastikan background tetap terlihat
+        label.setScaledContents(True)  # Mengatur agar pixmap disesuaikan dengan label
 
     def edge_detection_1(self):
         if self.original_image:
@@ -892,6 +933,93 @@ class Ui_MainWindow(QMainWindow):
 
     def dialog_popup_apply(self):
         about_dialog()
+
+    # Fungsi untuk memanggil setiap metode segmentasi
+    def apply_region_growing(self):
+        if self.original_image is not None:
+            # Mengonversi gambar PIL ke NumPy array
+            image_np = np.array(self.original_image)
+
+            # Jika gambar berwarna, ubah menjadi grayscale
+            if len(image_np.shape) == 3:
+                image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+
+            # Definisikan seed point dan threshold
+            seed = (10, 10)  # Contoh seed point
+            threshold_value = 20  # Threshold
+
+            # Segmentasi dengan region growing
+            segmented_image = region_growing(image_np, seed, threshold_value)
+
+            # Tampilkan hasil
+            display_images(image_np, segmented_image, "Region Growing")
+        else:
+            print("No image loaded!")
+
+    def apply_kmeans_clustering(self):
+        if self.original_image is not None:
+            image_np = np.array(self.original_image)
+
+            # Ubah menjadi grayscale jika gambar berwarna
+            if len(image_np.shape) == 3:
+                image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+
+            # Segmentasi dengan k-means
+            segmented_image = kmeans_clustering(image_np, 2)
+
+            # Tampilkan hasil
+            display_images(image_np, segmented_image, "k-Means Clustering")
+        else:
+            print("No image loaded!")
+
+    def apply_watershed_segmentation(self):
+        if self.original_image is not None:
+            image_np = np.array(self.original_image)
+
+            # Ubah menjadi grayscale jika gambar berwarna
+            if len(image_np.shape) == 3:
+                image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+
+            # Segmentasi dengan watershed
+            segmented_image = watershed_segmentation(image_np)
+
+            # Tampilkan hasil
+            display_images(image_np, segmented_image, "Watershed Segmentation")
+        else:
+            print("No image loaded!")
+
+    def apply_global_thresholding(self):
+        if self.original_image is not None:
+            image_np = np.array(self.original_image)
+
+            # Ubah menjadi grayscale jika gambar berwarna
+            if len(image_np.shape) == 3:
+                image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+
+            # Segmentasi dengan global thresholding
+            segmented_image = global_thresholding(image_np, 100)
+
+            # Tampilkan hasil
+            display_images(image_np, segmented_image, "Global Thresholding")
+        else:
+            print("No image loaded!")
+
+    def apply_adaptive_thresholding(self):
+        if self.original_image is not None:
+            image_np = np.array(self.original_image)
+
+            # Ubah menjadi grayscale jika gambar berwarna
+            if len(image_np.shape) == 3:
+                image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+
+            # Segmentasi dengan adaptive thresholding
+            adaptive_thresh_mean, adaptive_thresh_gaussian = adaptive_thresholding(image_np)
+
+            # Tampilkan hasil
+            display_images(image_np, adaptive_thresh_mean, "Adaptive Thresholding (Mean)")
+            display_images(image_np, adaptive_thresh_gaussian, "Adaptive Thresholding (Gaussian)")
+        else:
+            print("No image loaded!")
 
     def clear_image(self):
         # Clear the pixmap from both labels

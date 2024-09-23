@@ -4,7 +4,6 @@ from PyQt5.QtGui import QImage, QPixmap, QPainter, QColor
 from PyQt5.QtCore import Qt
 from PIL import Image
 
-
 def fuzzy_membership_function(x, mean, stddev):
     return np.exp(-((x - mean) ** 2) / (2 * (stddev ** 2)))
 
@@ -36,7 +35,9 @@ def fuzzy_histogram_equalization(image, block_size=16):
             # Hitung histogram lokal
             hist, bins = np.histogram(block.flatten(), bins=256, range=[0, 256])
             cdf = hist.cumsum()
-            cdf_normalized = cdf * 255 / cdf[-1]
+            cdf_normalized = cdf * 255 / cdf[-1]  # Normalisasi CDF ke rentang 0-255
+
+            # Equalisasi blok menggunakan CDF
             equalized_block = np.interp(block.flatten(), bins[:-1], cdf_normalized).reshape(block.shape)
 
             # Hitung keanggotaan fuzzy
@@ -44,8 +45,14 @@ def fuzzy_histogram_equalization(image, block_size=16):
             stddev = np.std(equalized_block)
             membership = fuzzy_membership_function(equalized_block, mean, stddev)
 
+            # Normalisasi membership ke rentang [0, 1]
+            membership_normalized = (membership - np.min(membership)) / (np.max(membership) - np.min(membership))
+
             # Terapkan penyesuaian kontras fuzzy
-            equalized_image[y:y_end, x:x_end] = np.clip(equalized_block * membership, 0, 255).astype(np.uint8)
+            adjusted_block = np.clip(equalized_block * membership_normalized, 0, 255).astype(np.uint8)
+
+            # Tempel hasil blok yang sudah diproses ke gambar hasil akhir
+            equalized_image[y:y_end, x:x_end] = adjusted_block
 
     return equalized_image
 
@@ -157,4 +164,4 @@ def resize_image(image, max_width, max_height):
     ratio = min(max_width / width, max_height / height)
     new_width = int(width * ratio)
     new_height = int(height * ratio)
-    return image.resize((new_width, new_height), Image.LANCZOS)
+    return image.resize((new_width, new_height), Image.LANCZOSf)
