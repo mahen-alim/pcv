@@ -30,7 +30,11 @@ from popup_slider import ColorCorrectionDialog
 from histogram import plot_histogram
 from transform import translation, rotation, flipping, convert_cv_to_pil, CroppableLabel, display_image_zoom
 from about_dialog import about_dialog
-from segmentation import region_growing, kmeans_clustering, watershed_segmentation, global_thresholding, adaptive_thresholding, display_images
+from segmentation import (
+    region_growing, kmeans_clustering, watershed_segmentation, 
+    global_thresholding, adaptive_thresholding, display_images
+)
+from morphology import pros_morphology
            
 class Ui_MainWindow(QMainWindow):
     
@@ -243,7 +247,44 @@ class Ui_MainWindow(QMainWindow):
         menuSegment.addAction(self.actionWatershed)
         menuSegment.addAction(self.actionTGlobal)
         menuSegment.addAction(self.actionTAdaptif)
-    
+
+        # Create the Morfologi menu
+        menuMorfologi = menubar.addMenu('Morphology')
+
+        # Submenus under Morfologi
+        menuErosion = menuMorfologi.addMenu('Erosi')
+        menuDilation = menuMorfologi.addMenu('Dilasi')
+        menuOpening = menuMorfologi.addMenu('Opening')
+        menuClosing = menuMorfologi.addMenu('Closing')
+
+        # Erosion Actions
+        self.actionSquare3 = QAction('Square 3', self)
+        self.actionSquare5 = QAction('Square 5', self)
+        self.actionCross3 = QAction('Cross 3', self)
+
+        # Dilation Actions
+        self.actionDSquare3 = QAction('Square 3', self)
+        self.actionDSquare5 = QAction('Square 5', self)
+        self.actionDCross3 = QAction('Cross 3', self)
+
+        # Opening and Closing Actions
+        self.actionOSquare9 = QAction('Square 9', self)
+        self.actionCSquare9 = QAction('Square 9', self)
+
+        # Add Erosion actions
+        menuErosion.addAction(self.actionSquare3)
+        menuErosion.addAction(self.actionSquare5)
+        menuErosion.addAction(self.actionCross3)
+
+        # Add Dilation actions
+        menuDilation.addAction(self.actionDSquare3)
+        menuDilation.addAction(self.actionDSquare5)
+        menuDilation.addAction(self.actionDCross3)
+
+        # Add Opening and Closing actions
+        menuOpening.addAction(self.actionOSquare9)
+        menuClosing.addAction(self.actionCSquare9)
+   
         # Create the "Tentang" action directly in the menubar
         self.aboutAction = QAction('Tentang', self)
 
@@ -300,51 +341,12 @@ class Ui_MainWindow(QMainWindow):
         # Create actions for Edge Detection submenu
         self.actionPrewitt = QAction('Prewitt', self)
         self.actionSobel = QAction('Sobel', self)
+        self.actionCanny = QAction('Canny', self)
 
         # Add actions to Edge Detection submenu
         menuEdgeDetection.addAction(self.actionPrewitt)
         menuEdgeDetection.addAction(self.actionSobel)
-
-        # Create the Morfologi menu
-        menuMorfologi = menubar.addMenu('Morfologi')
-
-        # Create submenus under Morfologi
-        menuErosion = menuMorfologi.addMenu('Erosion')
-        menuDilation = menuMorfologi.addMenu('Dilation')
-        menuOpening = menuMorfologi.addMenu('Opening')
-        menuClosing = menuMorfologi.addMenu('Closing')
-
-        # Create actions for Erosion submenu
-        self.actionSquare3 = QAction('Square 3', self)
-        self.actionSquare5 = QAction('Square 5', self)
-        self.actionCross3 = QAction('Cross 3', self)
-
-        # Add actions to Erosion submenu
-        menuErosion.addAction(self.actionSquare3)
-        menuErosion.addAction(self.actionSquare5)
-        menuErosion.addAction(self.actionCross3)
-
-        # Create actions for Dilation submenu
-        self.actionDSquare3 = QAction('Square 3', self)
-        self.actionDSquare5 = QAction('Square 5', self)
-        self.actionDCross3 = QAction('Cross 3', self)
-
-        # Add actions to Dilation submenu
-        menuDilation.addAction(self.actionDSquare3)
-        menuDilation.addAction(self.actionDSquare5)
-        menuDilation.addAction(self.actionDCross3)
-
-        # Create actions for Opening submenu
-        self.actionOSquare9 = QAction('Square 9', self)
-
-        # Add actions to Opening submenu
-        menuOpening.addAction(self.actionOSquare9)
-
-        # Create actions for Closing submenu
-        self.actionCSquare9 = QAction('Square 9', self)
-
-        # Add actions to Closing submenu
-        menuClosing.addAction(self.actionCSquare9)
+        menuEdgeDetection.addAction(self.actionCanny)
 
         # Create the "Clear" action directly in the menubar
         self.clearAction = QAction('Clear', self)
@@ -423,6 +425,25 @@ class Ui_MainWindow(QMainWindow):
         self.actionWatershed.triggered.connect(self.apply_watershed_segmentation)
         self.actionTGlobal.triggered.connect(self.apply_global_thresholding)
         self.actionTAdaptif.triggered.connect(self.apply_adaptive_thresholding)
+
+        # Connect actions to triggers (Erosion)
+        self.actionSquare3.triggered.connect(lambda: self.apply_morphology('erosion', 'square', 3))
+        self.actionSquare5.triggered.connect(lambda: self.apply_morphology('erosion', 'square', 5))
+        self.actionCross3.triggered.connect(lambda: self.apply_morphology('erosion', 'cross', 3))
+
+        # Connect actions to triggers (Dilation)
+        self.actionDSquare3.triggered.connect(lambda: self.apply_morphology('dilation', 'square', 3))
+        self.actionDSquare5.triggered.connect(lambda: self.apply_morphology('dilation', 'square', 5))
+        self.actionDCross3.triggered.connect(lambda: self.apply_morphology('dilation', 'cross', 3))
+
+        # Connect actions to triggers (Opening and Closing)
+        self.actionOSquare9.triggered.connect(lambda: self.apply_morphology('opening', 'square', 9))
+        self.actionCSquare9.triggered.connect(lambda: self.apply_morphology('closing', 'square', 9))
+
+        # Hubungkan aksi menu dengan fungsi pemrosesan
+        self.actionPrewitt.triggered.connect(lambda: self.process_edge_detection('Prewitt'))
+        self.actionSobel.triggered.connect(lambda: self.process_edge_detection('Sobel'))
+        self.actionCanny.triggered.connect(lambda: self.process_edge_detection('Canny'))
 
         # Clear Action
         self.clearAction.triggered.connect(self.clear_image)
@@ -934,7 +955,6 @@ class Ui_MainWindow(QMainWindow):
     def dialog_popup_apply(self):
         about_dialog()
 
-    # Fungsi untuk memanggil setiap metode segmentasi
     def apply_region_growing(self):
         if self.original_image is not None:
             # Mengonversi gambar PIL ke NumPy array
@@ -1020,6 +1040,58 @@ class Ui_MainWindow(QMainWindow):
             display_images(image_np, adaptive_thresh_gaussian, "Adaptive Thresholding (Gaussian)")
         else:
             print("No image loaded!")
+
+    def apply_morphology(self, operation, shape, size):
+        # Panggil fungsi apply_morphology
+        processed_image = pros_morphology(self.original_image, operation, shape, size)
+
+        if processed_image is not None:
+            self.processed_image = processed_image
+            self.display_image(self.processed_image, self.processedImageLabel)
+
+    def process_edge_detection(self, method):
+        """Proses deteksi tepi menggunakan metode yang dipilih."""
+        if self.original_image is None:
+            print("Error: Gambar asli tidak ditemukan.")
+            return
+
+        # Konversi gambar ke format NumPy
+        image = np.array(self.original_image)
+
+        if method == 'Prewitt':
+            # Definisikan kernel Prewitt
+            kernel_x = np.array([[1, 0, -1], [1, 0, -1], [1, 0, -1]], dtype=np.float32)
+            kernel_y = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]], dtype=np.float32)
+            
+            # Terapkan filter Prewitt
+            gradient_x = cv2.filter2D(image.astype(np.float32), -1, kernel_x)
+            gradient_y = cv2.filter2D(image.astype(np.float32), -1, kernel_y)
+            
+            # Hitung magnitude dan konversi kembali ke uint8
+            result = cv2.sqrt(gradient_x**2 + gradient_y**2)
+            result = np.uint8(np.clip(result, 0, 255))  # Memastikan hasil berada dalam rentang 0-255
+
+        elif method == 'Sobel':
+            # Terapkan filter Sobel
+            gradient_x = cv2.Sobel(image.astype(np.float32), cv2.CV_64F, 1, 0, ksize=5)
+            gradient_y = cv2.Sobel(image.astype(np.float32), cv2.CV_64F, 0, 1, ksize=5)
+            result = cv2.magnitude(gradient_x, gradient_y)
+            result = np.uint8(np.clip(result, 0, 255))  # Memastikan hasil berada dalam rentang 0-255
+
+        elif method == 'Canny':
+            # Terapkan deteksi tepi Canny
+            # Anda dapat menyesuaikan nilai threshold1 dan threshold2 sesuai kebutuhan
+            threshold1 = 100  # Threshold untuk deteksi tepi
+            threshold2 = 200  # Threshold untuk deteksi tepi
+            result = cv2.Canny(image.astype(np.uint8), threshold1, threshold2)
+
+        else:
+            print("Error: Metode deteksi tepi tidak valid.")
+            return
+
+        # Kembalikan gambar hasil sebagai objek PIL
+        self.processed_image = Image.fromarray(result)
+        self.display_image(self.processed_image, self.processedImageLabel)
 
     def clear_image(self):
         # Clear the pixmap from both labels

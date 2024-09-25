@@ -69,7 +69,6 @@ def display_image_zoom(image, label):
         # Set pixmap label
         label.setPixmap(label_pixmap)
 
-
 class CroppableLabel(QLabel):
     def __init__(self, parent=None):
         super(CroppableLabel, self).__init__(parent)

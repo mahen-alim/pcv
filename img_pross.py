@@ -7,7 +7,7 @@ from PIL import Image
 def fuzzy_membership_function(x, mean, stddev):
     return np.exp(-((x - mean) ** 2) / (2 * (stddev ** 2)))
 
-def fuzzy_histogram_equalization(image, block_size=16):
+def fuzzy_histogram_equalization(image, block_size=3336):
     """
     Menerapkan fuzzy histogram equalization pada gambar.
     """
