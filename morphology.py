@@ -1,5 +1,3 @@
-# morphology.py
-
 import numpy as np
 import cv2
 from PIL import Image
@@ -38,6 +36,22 @@ def pros_morphology(original_image, operation, shape, size):
             result_channel = cv2.morphologyEx(channel, cv2.MORPH_OPEN, kernel)
         elif operation == 'closing':
             result_channel = cv2.morphologyEx(channel, cv2.MORPH_CLOSE, kernel)
+        elif operation == 'hit-or-miss':
+            # Hit-or-miss transform
+            result_channel = cv2.morphologyEx(channel, cv2.MORPH_HITMISS, kernel)
+        elif operation == 'boundary-extraction':
+            # Boundary extraction: Original - Erosion
+            eroded = cv2.erode(channel, kernel, iterations=1)
+            result_channel = cv2.subtract(channel, eroded)
+        elif operation == 'region-filling':
+            # Region filling: Dilasi dan AND dengan mask
+            result_channel = region_filling(channel, kernel)
+        elif operation == 'thinning':
+            # Thinning (penipisan) menggunakan cv2.ximgproc.thinning
+            result_channel = cv2.ximgproc.thinning(channel)
+        elif operation == 'skeletonization':
+            # Skeletonization
+            result_channel = skeletonization(channel)
         else:
             print("Error: Operasi morfologi tidak valid.")
             return None
@@ -49,3 +63,38 @@ def pros_morphology(original_image, operation, shape, size):
 
     # Kembalikan gambar hasil sebagai objek PIL
     return Image.fromarray(result)
+
+def region_filling(image, kernel):
+    """Region Filling menggunakan dilasi berulang"""
+    inverted_image = cv2.bitwise_not(image)
+    filled_image = np.zeros_like(image)
+    prev_filled_image = filled_image.copy()
+
+    # Iterasi hingga gambar yang diisi berhenti berubah
+    while True:
+        filled_image = cv2.dilate(filled_image, kernel, iterations=1)
+        filled_image = cv2.bitwise_and(filled_image, inverted_image)
+
+        if np.array_equal(filled_image, prev_filled_image):
+            break
+        prev_filled_image = filled_image.copy()
+
+    return cv2.bitwise_not(filled_image)
+
+def skeletonization(image):
+    """Skeletonization menggunakan iterasi dilasi dan erosi"""
+    skeleton = np.zeros_like(image)
+    eroded = np.copy(image)
+    temp = np.zeros_like(image)
+
+    while True:
+        eroded = cv2.erode(eroded, cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3)))
+        temp = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3)))
+        temp = cv2.subtract(image, temp)
+        skeleton = cv2.bitwise_or(skeleton, temp)
+        image = eroded.copy()
+
+        if cv2.countNonZero(image) == 0:
+            break
+
+    return skeleton

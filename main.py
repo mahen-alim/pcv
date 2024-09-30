@@ -25,7 +25,10 @@ from colors import (
     adjust_contrast, adjust_brightness, apply_bit_depth, apply_invers,
     apply_log_brightness, apply_gamma_correction
 )
-from img_pross import fuzzy_histogram_equalization, fuzzy_histogram_equalization_rgb, display_image
+from img_pross import (
+    fuzzy_histogram_equalization, fuzzy_histogram_equalization_rgb, 
+    apply_histogram_equalization, convert_to_qimage, display_image
+)
 from popup_slider import ColorCorrectionDialog 
 from histogram import plot_histogram
 from transform import translation, rotation, flipping, convert_cv_to_pil, CroppableLabel, display_image_zoom
@@ -211,11 +214,13 @@ class Ui_MainWindow(QMainWindow):
         # Create the Image Processing menu
         menuImgPross = menubar.addMenu('Image Processing')
 
-        self.menuHE = QAction('Fuzy HE', self)
+        self.menuHe = QAction('Histogram Equalization', self)
+        self.menuFHE = QAction('Fuzy HE', self)
         self.menuFuzzyRGB = QAction('Fuzzy HE RGB', self)
 
         # Add these actions directly to the Image Processing menu
-        menuImgPross.addAction(self.menuHE)
+        menuImgPross.addAction(self.menuHe)
+        menuImgPross.addAction(self.menuFHE)
         menuImgPross.addAction(self.menuFuzzyRGB)
 
         # Create the Transform menu
@@ -257,6 +262,13 @@ class Ui_MainWindow(QMainWindow):
         menuOpening = menuMorfologi.addMenu('Opening')
         menuClosing = menuMorfologi.addMenu('Closing')
 
+        # Additional Morphology Menus
+        menuHitOrMiss = menuMorfologi.addMenu('Hit-or-Miss')
+        menuBoundaryExtraction = menuMorfologi.addMenu('Boundary Extraction')
+        menuRegionFilling = menuMorfologi.addMenu('Region Filling')
+        menuThinning = menuMorfologi.addMenu('Thinning')
+        menuSkeletonization = menuMorfologi.addMenu('Skeletonization')
+
         # Erosion Actions
         self.actionSquare3 = QAction('Square 3', self)
         self.actionSquare5 = QAction('Square 5', self)
@@ -271,6 +283,26 @@ class Ui_MainWindow(QMainWindow):
         self.actionOSquare9 = QAction('Square 9', self)
         self.actionCSquare9 = QAction('Square 9', self)
 
+        # Hit-or-Miss Actions
+        self.actionHitSquare3 = QAction('Square 3', self)
+        self.actionHitCross3 = QAction('Cross 3', self)
+
+        # Boundary Extraction Actions
+        self.actionBoundarySquare3 = QAction('Square 3', self)
+        self.actionBoundaryCross3 = QAction('Cross 3', self)
+
+        # Region Filling Actions
+        self.actionRegionSquare3 = QAction('Square 3', self)
+        self.actionRegionCross3 = QAction('Cross 3', self)
+
+        # Thinning Actions
+        self.actionThinningSquare3 = QAction('Square 3', self)
+        self.actionThinningCross3 = QAction('Cross 3', self)
+
+        # Skeletonization Actions
+        self.actionSkeletonSquare3 = QAction('Square 3', self)
+        self.actionSkeletonCross3 = QAction('Cross 3', self)
+
         # Add Erosion actions
         menuErosion.addAction(self.actionSquare3)
         menuErosion.addAction(self.actionSquare5)
@@ -284,6 +316,26 @@ class Ui_MainWindow(QMainWindow):
         # Add Opening and Closing actions
         menuOpening.addAction(self.actionOSquare9)
         menuClosing.addAction(self.actionCSquare9)
+
+        # Add Hit-or-Miss actions
+        menuHitOrMiss.addAction(self.actionHitSquare3)
+        menuHitOrMiss.addAction(self.actionHitCross3)
+
+        # Add Boundary Extraction actions
+        menuBoundaryExtraction.addAction(self.actionBoundarySquare3)
+        menuBoundaryExtraction.addAction(self.actionBoundaryCross3)
+
+        # Add Region Filling actions
+        menuRegionFilling.addAction(self.actionRegionSquare3)
+        menuRegionFilling.addAction(self.actionRegionCross3)
+
+        # Add Thinning actions
+        menuThinning.addAction(self.actionThinningSquare3)
+        menuThinning.addAction(self.actionThinningCross3)
+
+        # Add Skeletonization actions
+        menuSkeletonization.addAction(self.actionSkeletonSquare3)
+        menuSkeletonization.addAction(self.actionSkeletonCross3)
    
         # Create the "Tentang" action directly in the menubar
         self.aboutAction = QAction('Tentang', self)
@@ -416,8 +468,9 @@ class Ui_MainWindow(QMainWindow):
         self.actionCropping.triggered.connect(self.show_transform_cropping)
 
         # Image Processing
-        self.menuHE.triggered.connect(self.open_image_and_apply_histogram_equalization_triggered)
-        self.menuFuzzyRGB.triggered.connect(self.open_image_and_apply_fuzzy_rgb)
+        self.menuHe.triggered.connect(self.apply_histogram_equalization)
+        self.menuFHE.triggered.connect(self.apply_fuzzy_histogram_equalization)
+        self.menuFuzzyRGB.triggered.connect(self.apply_fuzzy_he_rgb)
 
         # Segmentation
         self.actionGrowing.triggered.connect(self.apply_region_growing)
@@ -439,6 +492,26 @@ class Ui_MainWindow(QMainWindow):
         # Connect actions to triggers (Opening and Closing)
         self.actionOSquare9.triggered.connect(lambda: self.apply_morphology('opening', 'square', 9))
         self.actionCSquare9.triggered.connect(lambda: self.apply_morphology('closing', 'square', 9))
+
+        # Triggers for Hit-or-Miss actions
+        self.actionHitSquare3.triggered.connect(lambda: self.apply_morphology('hit-or-miss', 'square', 3))
+        self.actionHitCross3.triggered.connect(lambda: self.apply_morphology('hit-or-miss', 'cross', 3))
+
+        # Triggers for Boundary Extraction actions
+        self.actionBoundarySquare3.triggered.connect(lambda: self.apply_morphology('boundary-extraction', 'square', 3))
+        self.actionBoundaryCross3.triggered.connect(lambda: self.apply_morphology('boundary-extraction', 'cross', 3))
+
+        # Triggers for Region Filling actions
+        self.actionRegionSquare3.triggered.connect(lambda: self.apply_morphology('region-filling', 'square', 3))
+        self.actionRegionCross3.triggered.connect(lambda: self.apply_morphology('region-filling', 'cross', 3))
+
+        # Triggers for Thinning actions
+        self.actionThinningSquare3.triggered.connect(lambda: self.apply_morphology('thinning', 'square', 3))
+        self.actionThinningCross3.triggered.connect(lambda: self.apply_morphology('thinning', 'cross', 3))
+
+        # Triggers for Skeletonization actions
+        self.actionSkeletonSquare3.triggered.connect(lambda: self.apply_morphology('skeletonization', 'square', 3))
+        self.actionSkeletonCross3.triggered.connect(lambda: self.apply_morphology('skeletonization', 'cross', 3))
 
         # Hubungkan aksi menu dengan fungsi pemrosesan
         self.actionPrewitt.triggered.connect(lambda: self.process_edge_detection('Prewitt'))
@@ -767,7 +840,34 @@ class Ui_MainWindow(QMainWindow):
             self.processed_image = apply_gamma_correction(self.processed_image, gamma_value)
             self.display_image(self.processed_image, self.processedImageLabel)
 
-    def open_image_and_apply_histogram_equalization_triggered(self):
+    def apply_histogram_equalization(main_window):
+        """
+        Aplikasi histogram equalization pada gambar yang ada di QLabel.
+        """
+        # Pastikan gambar di QLabel original ada (tidak None)
+        if main_window.originalImageLabel.pixmap() is not None:
+            # Konversi gambar dari QPixmap di originalImageLabel ke QImage
+            input_pixmap = main_window.originalImageLabel.pixmap()
+            input_image = input_pixmap.toImage()
+
+            # Konversi QImage menjadi numpy array
+            buffer = input_image.bits().asstring(input_image.width() * input_image.height() * 4)
+            image_np = np.frombuffer(buffer, dtype=np.uint8).reshape((input_image.height(), input_image.width(), 4))
+
+            # Konversi gambar ke format RGB
+            image_rgb = cv2.cvtColor(image_np, cv2.COLOR_BGRA2RGB)
+
+            # Terapkan histogram equalization
+            equalized_image = apply_histogram_equalization(image_rgb)
+
+            # Konversi kembali ke QImage untuk ditampilkan
+            qimage_result = convert_to_qimage(equalized_image)
+
+            # Tampilkan gambar hasil pada processedImageLabel
+            main_window.processedImageLabel.setPixmap(QPixmap.fromImage(qimage_result).scaled(
+                main_window.processedImageLabel.size(), Qt.KeepAspectRatio))
+
+    def apply_fuzzy_histogram_equalization(self):
         """
         Menerapkan Fuzzy Histogram Equalization pada gambar yang telah dibuka.
         """
@@ -794,7 +894,7 @@ class Ui_MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to apply histogram equalization: {str(e)}")
 
-    def open_image_and_apply_fuzzy_rgb(self):
+    def apply_fuzzy_he_rgb(self):
         """
         Menerapkan Fuzzy Histogram Equalization pada gambar RGB yang telah dibuka.
         """
