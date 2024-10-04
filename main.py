@@ -38,6 +38,7 @@ from segmentation import (
     global_thresholding, adaptive_thresholding, display_images
 )
 from morphology import pros_morphology
+from aritmetical import AritmeticalOperationApp
            
 class Ui_MainWindow(QMainWindow):
     
@@ -344,7 +345,10 @@ class Ui_MainWindow(QMainWindow):
         menubar.addAction(self.aboutAction)
 
         # Create the Aritmetical Operation menu
-        menuAritmetical = menubar.addMenu('Aritmetical Operation')
+        self.aritmeticalAction = QAction('Aritmetical Operation')
+
+        # Add the action directly to the menubar without creating a submenu
+        menubar.addAction(self.aritmeticalAction)
 
         # Create the Filter menu
         menuFilter = menubar.addMenu('Filter')
@@ -411,6 +415,7 @@ class Ui_MainWindow(QMainWindow):
         self.actionSaveAs.triggered.connect(self.save_image)
         self.actionExit.triggered.connect(self.close)
         self.aboutAction.triggered.connect(self.dialog_popup_apply)
+        self.aritmeticalAction.triggered.connect(self.open_aritmetical_operation)
 
         # Image Processing Filters
         self.actionEdgeDetection1.triggered.connect(self.edge_detection_1)
@@ -1054,6 +1059,11 @@ class Ui_MainWindow(QMainWindow):
 
     def dialog_popup_apply(self):
         about_dialog()
+
+    def open_aritmetical_operation(self):
+        """Open the Aritmetical Operation application."""
+        self.aritmetical_operation_app = AritmeticalOperationApp()
+        self.aritmetical_operation_app.show()  # Show the Aritmetical Operation App
 
     def apply_region_growing(self):
         if self.original_image is not None:
