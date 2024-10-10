@@ -39,6 +39,7 @@ from segmentation import (
 )
 from morphology import pros_morphology
 from aritmetical import AritmeticalOperationApp
+from fitur_extract import ekstraksi_warna, ekstraksi_tekstur
            
 class Ui_MainWindow(QMainWindow):
     
@@ -339,7 +340,7 @@ class Ui_MainWindow(QMainWindow):
         menuSkeletonization.addAction(self.actionSkeletonCross3)
    
         # Create the "Tentang" action directly in the menubar
-        self.aboutAction = QAction('Tentang', self)
+        self.aboutAction = QAction('About', self)
 
         # Add the action directly to the menubar without creating a submenu
         menubar.addAction(self.aboutAction)
@@ -403,6 +404,17 @@ class Ui_MainWindow(QMainWindow):
         menuEdgeDetection.addAction(self.actionPrewitt)
         menuEdgeDetection.addAction(self.actionSobel)
         menuEdgeDetection.addAction(self.actionCanny)
+
+        # Create the Ekstraksi Fitur menu
+        menuEkstraksiFitur = menubar.addMenu('Ekstraksi Fitur')
+
+        # Create actions for Ekstraksi Fitur submenu
+        self.actionWarnaEks = QAction('Ekstraksi Warna', self)
+        self.actionTeksturEks = QAction('Ekstraksi Tekstur', self)
+
+        # Add actions to Ekstraksi Fitur submenu
+        menuEkstraksiFitur.addAction(self.actionWarnaEks)
+        menuEkstraksiFitur.addAction(self.actionTeksturEks)
 
         # Create the "Clear" action directly in the menubar
         self.clearAction = QAction('Clear', self)
@@ -523,6 +535,10 @@ class Ui_MainWindow(QMainWindow):
         self.actionSobel.triggered.connect(lambda: self.process_edge_detection('Sobel'))
         self.actionCanny.triggered.connect(lambda: self.process_edge_detection('Canny'))
 
+        # Connect actions to respective functions
+        self.actionWarnaEks.triggered.connect(self.apply_ekstraksi_warna)
+        self.actionTeksturEks.triggered.connect(self.apply_ekstraksi_tekstur)
+
         # Clear Action
         self.clearAction.triggered.connect(self.clear_image)
 
@@ -556,10 +572,14 @@ class Ui_MainWindow(QMainWindow):
     def open_image(self):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, 'Open Image File', '', 'Images (*.png *.jpg *.bmp);;All Files (*)', options=options)
+        
         if file_path:
             self.original_image = Image.open(file_path)
             self.display_image(self.original_image, self.originalImageLabel)
             self.processed_image = None
+            
+            # Simpan jalur file gambar yang dipilih
+            self.image_file_path = file_path
 
     def save_image(self):
         # Buka dialog untuk memilih lokasi penyimpanan gambar
@@ -1202,6 +1222,60 @@ class Ui_MainWindow(QMainWindow):
         # Kembalikan gambar hasil sebagai objek PIL
         self.processed_image = Image.fromarray(result)
         self.display_image(self.processed_image, self.processedImageLabel)
+
+    def apply_ekstraksi_warna(self):
+        if self.image_file_path:
+            try:
+                # Jalankan fungsi ekstraksi warna
+                ekstraksi_warna(self.image_file_path)
+                
+                # Tampilkan pesan sukses
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Ekstraksi Warna Berhasil")
+                msg.setText(f"Ekstraksi warna selesai untuk {self.image_file_path}. Hasil disimpan di 'D:/ekstraksi_fitur/ekstraksi_warna.xlsx'.")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()  # Menampilkan popup
+                
+            except Exception as e:
+                # Tampilkan pesan error jika ada kesalahan
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText(f"Terjadi kesalahan: {str(e)}")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()  # Menampilkan popup error
+
+    def apply_ekstraksi_tekstur(self):
+        if hasattr(self, 'image_file_path'):  # Pastikan gambar telah dipilih
+            try:
+                # Jalankan fungsi ekstraksi tekstur
+                ekstraksi_tekstur(self.image_file_path)
+                
+                # Tampilkan pesan sukses menggunakan QMessageBox
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Ekstraksi Tekstur Berhasil")
+                msg.setText(f"Ekstraksi tekstur selesai untuk {self.image_file_path}. Hasil disimpan di 'D:/ekstraksi_fitur/ekstraksi_tekstur.xlsx'.")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()  # Menampilkan popup sukses
+
+            except Exception as e:
+                # Jika terjadi kesalahan, tampilkan pesan error
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setWindowTitle("Error")
+                msg.setText(f"Terjadi kesalahan: {str(e)}")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()  # Menampilkan popup error
+        else:
+            # Jika gambar belum dipilih, tampilkan pesan peringatan
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Warning)
+            msg.setWindowTitle("Gambar Belum Dipilih")
+            msg.setText("Silakan pilih gambar terlebih dahulu.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()  # Menampilkan popup peringatan
 
     def clear_image(self):
         # Clear the pixmap from both labels
