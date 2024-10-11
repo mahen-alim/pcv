@@ -30,29 +30,24 @@ def apply_coklat(image):
 def apply_merah(image):
     return apply_rgb_filter(image, 1.0, 0.0, 0.0)
 
-
-# Fungsi untuk konversi gambar ke grayscale menggunakan metode rata-rata
 def convert_to_average(image):
     image_np = np.array(image)
     # Rata-rata dari tiga channel warna
     average = np.mean(image_np, axis=2).astype(np.uint8)
     return Image.fromarray(average)
 
-# Fungsi untuk konversi gambar ke grayscale menggunakan metode lightness
 def convert_to_lightness(image):
     image_np = np.array(image)
     # Lightness: rata-rata nilai min dan max dari R, G, B
     lightness = (np.max(image_np, axis=2) + np.min(image_np, axis=2)) / 2
     return Image.fromarray(lightness.astype(np.uint8))
 
-# Fungsi untuk konversi gambar ke grayscale menggunakan metode luminance
 def convert_to_luminance(image):
     image_np = np.array(image)
     # Luminance: menggunakan rumus perceptual weighting
     luminance = (0.299 * image_np[..., 0] + 0.587 * image_np[..., 1] + 0.114 * image_np[..., 2]).astype(np.uint8)
     return Image.fromarray(luminance)
 
-# Linear
 def adjust_saturation(image, saturation_factor):
     """
     Mengubah saturasi gambar.
@@ -88,7 +83,6 @@ def adjust_brightness(image, brightness_factor):
     enhanced = cv2.convertScaleAbs(image_np, alpha=1, beta=brightness_factor)
     return Image.fromarray(enhanced)
 
-# bit depth
 def apply_bit_depth(image, bit_depth):
     # Ubah gambar PIL ke array NumPy
     image_np = np.array(image)
@@ -130,5 +124,3 @@ def apply_gamma_correction(image, gamma=1.0):
     image_np = np.power(image_np / 255.0, inv_gamma) * 255.0
     image_np = np.uint8(image_np)
     return Image.fromarray(image_np)
-
-

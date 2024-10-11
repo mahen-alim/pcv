@@ -49,7 +49,7 @@ class Ui_MainWindow(QMainWindow):
 
     def setupUi(self):
         self.setWindowTitle("Image Filter Application")
-        self.default_width = 1600
+        self.default_width = 1700
         self.default_height = 900
         self.setGeometry(100, 100, self.default_width, self.default_height)
     
